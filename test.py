@@ -1,128 +1,73 @@
-import multiprocessing as mp
+import htMultiProcessing as htmp
+import classifyUser as cu
 import os
-from functools import partial
+import time
 
 
-def find_num(input_num, target_arr):
-    # print(target_arr)
-    # print("{} == {}".format(get_num, input_num))
-    if target_arr == str(input_num):
-        print(target_arr)
-        return target_arr
-    return False
+def filtered_by_song_name(data_list, song_dic):
+    start_time = time.time()
+    cu.filterd_song_name_by_row_data(data_list, song_dic)
+    print('----%s time ---' % (time.time() - start_time), 'data_list : ', len(data_list), 'song_dic : ', len(song_dic))
 
 
-def parral_check_user_exists(input_num, target_arr):
-    f_num = 0
-    print(input_num)
-    func = partial(find_num, input_num)
-    pool = mp.Pool()
-    f_num = pool.map(func, target_arr)
-    pool.close()
-    pool.join()
-    return f_num
-
-
-# if __name__ == '__main__':
-#    f = parral_check_user_exists(333, num_arr)
-#    print(f)
-
-# parral_check_user_exists(900, num_arr)
-# parral_check_user_exists(3333, num_arr)
-
-def slicer(l, n):
-    print('slicer', len(l), n)
-    if n == 0:
-        n = 1
-        print('slicer is 0', len(l), n)
-    return [l[i:i + n] for i in range(0, len(l), n)]
-
-
-def do_job(data_slice, job_id):
-    print('job', job_id, len(data_slice[0]))
-    for slice in data_slice:
-        print('slice', max(slice), min(slice))
-        for item in slice:
-            if item == 999999:
-                print("job", job_id, item)
-
-
-#        print("job", job_id, item)
-
-
-def last_func(data_list, arg_dic):
-    #print(arg_dic)
+# songName, userIdx, strmCount, strmHour, strmDate, strmType, purchaseType, regDat
+#     0         1       2           3          4        5           6          7
+def filtered_by_day(data_list, daily_dic):
     for data in data_list:
-        try:
-            data_dic[data[0][0]] = data
-        except Exception as e:
-            print(e)
-            return
+        # strmCount 형변환
+        data[2] = int(data[2])
+        # 날짜별 분류
+        if data[4] in daily_dic:
+            day = daily_dic[data[4]]
+            # 날짜별 리스트에서 유저 검색
+            if data[1] in day:
+                bef_user_data = day[data[1]]
+                day[data[1]] = cu.make_user_data([bef_user_data, data])
+            else:
+                # 존재 안할경우 해당 유저 값 생성
+                day[data[1]] = data
+        else:
+            # 날짜별 리스트 없을 경우 최초 생성
+            daily_dic[str(data[4])] = {data[1]: data}
+    return daily_dic
 
 
-def work_filter_song(arg_arr, data_dic):
-    # 필요한 값은 job_id, data_list 이다
-    # static_val - partial, func 시에 전달
-    # arg_arr[] - arg_arr[job_id][data_list] 형태로 pool 시에 전달
-    # data_dic - pool.manager 를 통해 전달
-    print('work job', arg_arr, data_dic)
-    #last_func(arg_list, data_dic)
+def test(file_name):
+    # 데이터 읽기
+    row_data = cu.get_data_list_for_csv(file_name + '.csv')
+    print('[READ] row_data', len(row_data))
 
+    # 곡명으로 데이터 분할
+    # 입력 데이터 분할 리스트 생성
+    slice_arr = htmp.chunk_divider(row_data, 1000)
+    # 멀티프로세싱 초기화 및 실행
+    htmp.init()
+    htmp.do_processing(filtered_by_song_name, slice_arr)
+    htmp.stop_processing()
+    song_dic = htmp.ht_mp.get('result')
+    print('result : ', len(song_dic))
 
-def slice_job(data, job_num, job):
-    total = len(data)
-    slice_len = int(total / job_num)
-    slice = slicer(data, slice_len)
-    jobs = []
+    htmp.init()
+    for song_name in song_dic.keys():
+        start_time = time.time()
+        # 입력 데이터 분할 리스트 생성
+        slice_arr = htmp.chunk_divider(song_dic[song_name], 1000)
+        # 멀티프로세싱 초기화 및 실행
+        htmp.do_processing(filtered_by_day, slice_arr)
+        daily_dic = htmp.ht_mp.get('result')
+        # print('result : ', len(daily_dic))
 
-    for i, s in enumerate(slice):
-        j = mp.Process(target=job, args=(i, s))
-        jobs.append(j)
-    for j in jobs:
-        j.start()
+        user_dic_len = 0
+        for day in daily_dic.keys():
+            user_dic_len = user_dic_len + len(daily_dic[day])
+            now_path = os.path.join(os.getcwd(), 'parsed', day + '_' + song_name)
+            cu.write_csv_del_tab(now_path, daily_dic[day])
 
+        print('----%s time ---' % (time.time() - start_time), 'song_name : ', song_name
+              , 'user_log_list : ', len(song_dic[song_name]), 'user_dic_len : ', user_dic_len)
 
-def doMultiProcessing()
-
-
-def slice_job_map(arg_arr, job_num, pool_size, do_job):
-    total = len(arg_arr[0])
-    slice_len = int(total / job_num)
-    print('total : ', total, 'job_num : ', job_num, 'slice_len : ', slice_len)
-    slice = slicer(arg_arr[0], slice_len)
-    slice_arr = []
-
-    for i, s in enumerate(slice):
-        slice_arr.append(s)
-        now_pool_size = (i + 1) % pool_size
-        print(i, now_pool_size, range((i+1) - pool_size, (i+1)))
-        if now_pool_size == 0 and i > 0:
-            print(len(slice_arr), min(slice_arr[0]), max(slice_arr[3]))
-
-
-            p = mp.Pool(pool_size)
-            p.map_async(func, slice_arr).get()
-            p.close()
-            p.join()
-            slice_arr = []
-        elif i == len(slice) - 1:
-            func = partial(do_job, arg_arr, range((i+1) - now_pool_size, (i+1)))
-            p = mp.Pool(now_pool_size)
-            p.map_async(func, slice_arr).get()
-            p.close()
-            p.join()
-            slice_arr = []
+    htmp.stop_processing()
 
 
 if __name__ == "__main__":
-
-    # 테스트 데이터 생성
-    num_arr = []
-    for num in range(1000):
-        node = []
-        for copy in range(7):
-            node.append(str(num))
-
-        num_arr.append(node)
-
-    slice_job_map([num_arr, data_dic], 10, processors, work_filter_song)
+    test('melon0925')

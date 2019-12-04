@@ -75,7 +75,6 @@ def make_song_vo(row):
 
 
 def filterd_song_name_by_row_data(row_data, song_dic):
-    #song_list = {}
     for row in row_data:
         # songName, userIdx, strmCount, strmHour, strmDate, strmType, purchaseType, regDate
         #   4           6       3           2       1           5           0           7
@@ -114,13 +113,3 @@ def make_user_data(user_log):
         user[2] = user[2] + log[2]
 
     return user
-
-
-def parral_check_user_exists(data, userList):
-    func = partial(make_user_data, data)
-    pool = mp.Pool(processes=4)
-    result = pool.map(func, userList)
-    pool.close()
-    pool.join()
-    print(result)
-

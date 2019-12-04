@@ -1,8 +1,7 @@
 import classifyUser as cu
 import os
 import time
-from functools import partial
-import multiprocessing as mp
+import htMultiProcessing as htmp
 
 
 def group_by_user(song_data):
@@ -62,39 +61,6 @@ def filter_user_by_song_data(song_name, song_data):
     print("----%s time ---" % (time.time() - start_time))
 
 
-def slicer(l, n):
-    print('slicer', len(l), n)
-    if n == 0:
-        n = 1
-        print('slicer is 0', len(l), n)
-    return [l[i:i + n] for i in range(0, len(l), n)]
-
-
-def slice_job_map(data, job_num, pool_size, do_job):
-    total = len(data[0])
-    slice_len = int(total / job_num)
-    print('total : ', total, 'job_num : ', job_num, 'slice_len : ', slice_len)
-    slice = slicer(data[0], slice_len)
-    slice_arr = []
-
-    for i, s in enumerate(slice):
-        slice_arr.append(s)
-        now_pool_size = i % pool_size
-        print(i, now_pool_size, range(i - now_pool_size, i))
-        if now_pool_size == 0 and i > 0:
-            func = partial(do_job, slice_arr)
-            p = mp.Pool(pool_size)
-            p.map_async(func, range(i - pool_size, i)).get()
-            p.close()
-            p.join()
-            slice_arr = []
-        elif i == len(slice) - 1:
-            func = partial(do_job, slice_arr)
-            p = mp.Pool(now_pool_size)
-            p.map_async(func, range(i - now_pool_size, i)).get()
-            p.close()
-            p.join()
-            slice_arr = []
 
 
 if __name__ == "__main__":
@@ -103,3 +69,29 @@ if __name__ == "__main__":
 # song_name = '조금 취했어 (Prod. 2soo)'
 # print(song_name)
 # song_data = cu.get_data_list_for_csv(song_name + '.csv')
+
+
+def test():
+    # 테스트 데이터 생성
+    num_arr = []
+    for num in range(1000):
+        node = []
+        for copy in range(7):
+            node.append(str(num))
+
+        num_arr.append(node)
+
+    # 입력 데이터 분할 리스트 생성
+    slice_arr = chunk_divider(num_arr, 10)
+    # 멀티프로세싱 초기화 및 실행
+    init()
+    result = do_processing(test_func, slice_arr)
+    print(result)
+
+    print(ht_mp.get('shared_dic'))
+
+
+if __name__ == "__main__":
+    test()
+
+
